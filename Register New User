@@ -1,0 +1,53 @@
+# Add New User
+# Send password via email
+
+    public function addUser(Request $request)
+    {
+        $data = $request->all();
+        $validator = Validator::make($data, [
+            'name' => 'required|max:255',
+            'email' => 'required|max:255',  
+        ]);
+        DB::beginTransaction();
+        if ($validator->fails()) {
+            $arr['data'] = array('data' => array());
+            $arr['meta'] = array(["status" => 400 , "message" => $validator->errors()->first()]);
+        }
+        else{
+            try{
+                $checkEmail = Admin::whereEmail($request->email)->first();
+                if($checkEmail)
+                {
+                    $arr['data'] = array(['data' => $request->email]);
+                    $arr['meta'] = array(["status" => 400 , "message" => "This email is already exists in database."]);
+                }
+                else{
+                    $random = mt_rand(100000,999999);
+                    $admin = new Admin();
+                    $admin->name = $request->name;
+                    $admin->email = $request->email;
+                    $admin->password = Hash::make($random);
+                    $admin->save();
+
+                    $data = array('name' => $request->name ,'password' => $random);
+                    \Mail::send('mail.password', $data, function($message) use ($request) {
+                        $message->to($request->email, 'Tutorials')->subject
+                            ('Laravel Testing Mail');
+                    });
+                    DB::commit();
+                    $arr['data'] = array('email' => $admin->email, 'id' => $admin->id, 'name' =>$admin->name, 'status' =>$admin->status);
+                    $arr['meta'] = array(["status" => 200 , "message" => "Admin added successfully"]);
+                }  
+            }
+            catch(\Exception $e){
+                DB::rollback();
+                if (isset($e->errorInfo[2])) {
+                    $msg = $e->errorInfo[2];
+                } else {
+                    $msg = $e->getMessage();
+                }
+                $arr = array("status" => 400, "message" => $msg, "data" => $msg);
+            }
+        }
+        return \Response::json($arr);
+    }
