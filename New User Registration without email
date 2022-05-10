@@ -1,0 +1,44 @@
+    public function addUser(Request $request)
+    {
+        $data = $request->all();
+        $validator = Validator::make($data, [
+            'name' => 'required|max:255',
+            'email' => 'required|max:255', 
+            'password' => 'required',
+        ]);
+        DB::beginTransaction();
+        if ($validator->fails()) {
+            $arr['data'] = array('data' => array());
+            $arr['meta'] = array(["status" => 400 , "message" => $validator->errors()->first()]);
+        }
+        else{
+            try{
+                $checkEmail = Admin::whereEmail($request->email)->first();
+                if($checkEmail)
+                {
+                    $arr['data'] = array(['data' => $request->email]);
+                    $arr['meta'] = array(["status" => 400 , "message" => "This email is already exists in database."]);
+                }
+                else{
+                    $admin = new Admin();
+                    $admin->name = $request->name;
+                    $admin->email = $request->email;
+                    $admin->password = Hash::make($request->password);
+                    $admin->save();
+                    DB::commit();
+                    $arr['data'] = array('email' => $admin->email, 'id' => $admin->id, 'name' =>$admin->name, 'status' =>$admin->status);
+                    $arr['meta'] = array(["status" => 200 , "message" => "Admin added successfully"]);
+                }  
+            }
+            catch(\Exception $e){
+                DB::rollback();
+                if (isset($e->errorInfo[2])) {
+                    $msg = $e->errorInfo[2];
+                } else {
+                    $msg = $e->getMessage();
+                }
+                $arr = array("status" => 400, "message" => $msg, "data" => $msg);
+            }
+        }
+        return \Response::json($arr);
+    }
