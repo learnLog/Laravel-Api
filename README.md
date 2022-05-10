@@ -1,3 +1,3 @@
 # Laravel-Api
 
-Hello
+Laravel Apis with different functionalities
